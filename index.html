@@ -112,7 +112,7 @@
   section.category .subtitle { font-size: 13px; color: var(--text-secondary); margin: 0 0 12px; line-height: 1.45; }
   section.category > .card { padding: 6px 10px; overflow-x: auto; }
 
-  table { width: 100%; min-width: 900px; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+  table { width: 100%; min-width: 980px; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
   thead th {
     text-align: left; font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text-secondary);
     border-bottom: 1px solid var(--gridline); padding: 12px 10px 10px; white-space: nowrap; vertical-align: bottom;
@@ -125,6 +125,7 @@
   td.num, th.num { text-align: center; font-variant-numeric: tabular-nums; }
   th:first-child, td:first-child { width: 23%; }
   th:nth-child(2), td:nth-child(2) { width: 12%; }
+  th:nth-last-child(2), td:nth-last-child(2) { width: 170px; overflow: visible; }
   th:not(:first-child), td:not(:first-child) { text-align: center; }
   th:last-child, td:last-child { width: 14%; }
   td.name { font-weight: 600; }
