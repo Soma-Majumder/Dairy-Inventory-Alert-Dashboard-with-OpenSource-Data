@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dairy Inventory Alert Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:      #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --border:         rgba(11,11,11,0.10);
+    --good:           #0ca30c;
+    --warning:        #fab219;
+    --serious:        #ec835a;
+    --critical:       #d03b3b;
+    --series-blue:    #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page-plane:      #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --border:         rgba(255,255,255,0.10);
+      --series-blue:    #3987e5;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--page-plane);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  body { padding: 24px; }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+
+  header.app-header { margin-bottom: 20px; }
+  header.app-header h1 { font-size: 22px; margin: 0 0 4px; }
+  header.app-header p { margin: 0; color: var(--text-secondary); font-size: 14px; }
+
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  .upload-card { text-align: center; padding: 40px 20px; }
+  .dropzone {
+    border: 2px dashed var(--gridline);
+    border-radius: 10px;
+    padding: 36px 20px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+  }
+  .dropzone.drag-over { border-color: var(--series-blue); background: color-mix(in srgb, var(--series-blue) 8%, transparent); }
+  .dropzone svg { opacity: .55; margin-bottom: 10px; }
+  .dropzone p.primary { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+  .dropzone p.secondary { margin: 0; font-size: 13px; color: var(--text-secondary); }
+  input[type=file] { display: none; }
+
+  .toolbar-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 18px; }
+  .btn {
+    font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    padding: 9px 14px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface-1); color: var(--text-primary);
+  }
+  .btn:hover { background: var(--gridline); }
+  .btn.primary { background: var(--series-blue); color: #ffffff; border-color: transparent; }
+  .btn.primary:hover { filter: brightness(1.08); }
+  .btn.text { border-color: transparent; background: transparent; color: var(--text-secondary); text-decoration: underline; }
+
+  .top-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+  .file-meta { font-size: 13px; color: var(--text-secondary); }
+  .file-meta strong { color: var(--text-primary); }
+
+  .controls-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-secondary); flex-wrap: wrap; }
+  .controls-row input[type=number] {
+    width: 56px; font: inherit; font-size: 13px; padding: 5px 6px;
+    border-radius: 6px; border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary);
+  }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin: 20px 0; }
+  .stat-tile { padding: 16px; }
+  .stat-tile .label { font-size: 12px; color: var(--text-secondary); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .stat-tile .value { font-size: 30px; font-weight: 700; font-variant-numeric: proportional-nums; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .dot.good { background: var(--good); }
+  .dot.warning { background: var(--warning); }
+  .dot.serious { background: var(--serious); }
+  .dot.critical { background: var(--critical); }
+  .dot.neutral { background: var(--series-blue); }
+
+  section.category { margin-top: 26px; }
+  section.category h2 { font-size: 16px; margin: 0 0 2px; display:flex; align-items:center; gap:8px; }
+  section.category .subtitle { font-size: 13px; color: var(--text-secondary); margin: 0 0 12px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead th {
+    text-align: left; font-weight: 600; color: var(--text-secondary);
+    border-bottom: 1px solid var(--gridline); padding: 8px 10px; white-space: nowrap;
+  }
+  tbody td { padding: 9px 10px; border-bottom: 1px solid var(--gridline); }
+  tbody tr:last-child td { border-bottom: none; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.name { font-weight: 600; }
+  .name.is-reviewed { color: var(--text-muted); font-weight: 600; text-decoration: line-through; }
+  td.is-reviewed-muted { color: var(--text-muted); }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 700; letter-spacing: .02em;
+    padding: 3px 8px; border-radius: 20px; white-space: nowrap;
+  }
+  .badge::before { content: "●"; font-size: 8px; }
+  .badge.critical { background: var(--critical); color: #ffffff; }
+  .badge.serious  { background: var(--serious);  color: #1a1200; }
+  .badge.warning  { background: var(--warning);  color: #1a1200; }
+  .badge.good     { background: var(--good);     color: #ffffff; }
+
+  .empty-section { padding: 16px; text-align: center; color: var(--text-secondary); font-size: 13px; }
+  .empty-section .check { color: var(--good); font-weight: 700; margin-right: 4px; }
+
+  .review-btn {
+    font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+    padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: transparent; color: var(--text-primary); white-space: nowrap;
+  }
+  .review-btn:hover { background: var(--gridline); }
+  .review-done {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 600; color: var(--good); white-space: nowrap;
+    background: color-mix(in srgb, var(--good) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--good) 40%, transparent);
+    border-radius: 8px; padding: 7px 12px;
+  }
+  .review-done .undo-link { text-decoration: underline; cursor: pointer; color: inherit; font-weight: 600; background: none; border: none; font: inherit; padding: 0; }
+
+  .missing-note { padding: 16px; font-size: 13px; color: var(--text-secondary); background: var(--page-plane); border-radius: 8px; }
+  .missing-note code { background: var(--gridline); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
+  .stockout-hint { font-size: 11px; font-weight: 400; color: var(--text-secondary); margin-top: 2px; }
+
+  footer.privacy { margin-top: 28px; font-size: 12px; color: var(--text-muted); text-align: center; }
+
+  .hidden { display: none !important; }
+  .error-banner {
+    background: color-mix(in srgb, var(--critical) 12%, var(--surface-1));
+    border: 1px solid var(--critical); color: var(--text-primary);
+    border-radius: 8px; padding: 12px 14px; font-size: 13px; margin-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="viz-root wrap">
+
+  <header class="app-header">
+    <h1>Dairy Inventory Alert Dashboard</h1>
+    <p>Upload your inventory spreadsheet to instantly see only the products that need action.</p>
+  </header>
+
+  <div id="errorBanner" class="error-banner hidden"></div>
+
+  <!-- Upload state -->
+  <div id="uploadCard" class="card upload-card">
+    <div id="dropzone" class="dropzone">
+      <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4M12 4l-4 4M12 4l4 4"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+      <p class="primary">Drop your spreadsheet here, or click to browse</p>
+      <p class="secondary">Accepts .xlsx, .xls, or .csv</p>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
+    <div class="toolbar-row">
+      <button class="btn primary" id="browseBtn">Choose file</button>
+      <button class="btn" id="sampleBtn">Try it with sample data</button>
+      <button class="btn text" id="templateBtn">Download a blank template</button>
+    </div>
+  </div>
+
+  <!-- Dashboard state -->
+  <div id="dashboard" class="hidden">
+    <div class="top-bar">
+      <div class="file-meta">Loaded <strong id="fileName"></strong> &middot; <strong id="totalCount"></strong> products analyzed</div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
+        <div class="controls-row">
+          Flag stockout within
+          <input type="number" id="stockoutDays" min="1" max="90" value="14" />
+          days
+        </div>
+        <div class="controls-row">
+          Flag expiring within
+          <input type="number" id="expiryDays" min="1" max="90" value="7" />
+          days
+        </div>
+        <button class="btn" id="newFileBtn">Upload a different file</button>
+      </div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="card stat-tile">
+        <div class="label"><span class="dot critical"></span>Stockout risk</div>
+        <div class="value" id="statStockout">0</div>
+      </div>
+      <div class="card stat-tile">
+        <div class="label"><span class="dot critical"></span>Low stock</div>
+        <div class="value" id="statLowStock">0</div>
+      </div>
+      <div class="card stat-tile">
+        <div class="label"><span class="dot warning"></span>Nearing expiration</div>
+        <div class="value" id="statExpiring">0</div>
+      </div>
+      <div class="card stat-tile">
+        <div class="label"><span class="dot serious"></span>Needs reordering</div>
+        <div class="value" id="statReorder">0</div>
+      </div>
+      <div class="card stat-tile">
+        <div class="label"><span class="dot neutral"></span>Total needing action</div>
+        <div class="value" id="statTotalAction">0</div>
+      </div>
+    </div>
+
+    <section class="category" id="sectionStockout">
+      <h2><span class="dot critical"></span>Stockout forecast</h2>
+      <p class="subtitle" id="stockoutSubtitle">Products projected to run out soonest, based on current stock &divide; average daily sales rate.</p>
+      <div class="card" id="stockoutBody"></div>
+    </section>
+
+    <section class="category" id="sectionLowStock">
+      <h2><span class="dot critical"></span>Low stock</h2>
+      <p class="subtitle">Current stock at or below the minimum stock level.</p>
+      <div class="card" id="lowStockBody"></div>
+    </section>
+
+    <section class="category" id="sectionExpiring">
+      <h2><span class="dot warning"></span>Nearing expiration</h2>
+      <p class="subtitle" id="expiringSubtitle">Products expiring soon or already expired.</p>
+      <div class="card" id="expiringBody"></div>
+    </section>
+
+    <section class="category" id="sectionReorder">
+      <h2><span class="dot serious"></span>Needs reordering</h2>
+      <p class="subtitle">Current stock at or below the reorder point.</p>
+      <div class="card" id="reorderBody"></div>
+    </section>
+  </div>
+
+  <footer class="privacy">Your spreadsheet is processed entirely in this browser tab — nothing is uploaded to a server.</footer>
+</div>
+
+<script>
+(function () {
+  const COLUMN_ALIASES = {
+    name: ['product name','product','item','item name','name','sku name','product/item','description'],
+    stock: ['current stock','stock','quantity','qty','current qty','on hand','stock on hand','inventory','current inventory','units in stock','stock level'],
+    minStock: ['min stock','minimum stock','safety stock','min qty','low stock threshold','minimum quantity','critical stock level','min level'],
+    reorderPoint: ['reorder point','reorder level','rop','reorder threshold','reorder trigger','reorder qty threshold'],
+    expiration: ['expiration date','expiry date','exp date','best by','use by','sell by','expires','expiration','best before','best before date'],
+    reorderQty: ['reorder qty','reorder quantity','order qty','order quantity','suggested order qty'],
+    parLevel: ['par level','max stock','target stock','max qty','par','target quantity'],
+    unit: ['unit','uom','units','unit of measure'],
+    category: ['category','type','product type','product category'],
+    salesRate: ['sales rate','avg daily sales','average daily sales','daily sales','daily sales rate','units sold per day','avg sales per day','sales velocity','avg daily usage','daily usage','usage rate','avg daily demand','daily demand']
+  };
+
+  const state = { rows: [], columns: {}, fileName: '', reviewed: new Set() };
+
+  const $ = (id) => document.getElementById(id);
+  const dropzone = $('dropzone');
+  const fileInput = $('fileInput');
+
+  function normalizeHeader(h) {
+    return String(h || '').toLowerCase().trim().replace(/[_\-]/g, ' ').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ');
+  }
+
+  function detectColumns(headers) {
+    const normalized = headers.map(normalizeHeader);
+    const map = {};
+    for (const field of Object.keys(COLUMN_ALIASES)) {
+      const aliases = COLUMN_ALIASES[field];
+      let foundIdx = -1;
+      for (let i = 0; i < normalized.length; i++) {
+        if (aliases.includes(normalized[i])) { foundIdx = i; break; }
+      }
+      if (foundIdx !== -1) map[field] = headers[foundIdx];
+    }
+    return map;
+  }
+
+  function parseDate(value) {
+    if (value === null || value === undefined || value === '') return null;
+    if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+    if (typeof value === 'number') {
+      try {
+        const d = XLSX.SSF.parse_date_code(value);
+        if (d) return new Date(d.y, d.m - 1, d.d);
+      } catch (e) { /* fall through */ }
+    }
+    const d = new Date(String(value).trim());
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function toNumber(value) {
+    if (value === null || value === undefined || value === '') return null;
+    const n = Number(String(value).replace(/[,$]/g, '').trim());
+    return isNaN(n) ? null : n;
+  }
+
+  function daysBetween(a, b) {
+    const MS = 24 * 60 * 60 * 1000;
+    const d1 = new Date(a.getFullYear(), a.getMonth(), a.getDate());
+    const d2 = new Date(b.getFullYear(), b.getMonth(), b.getDate());
+    return Math.round((d2 - d1) / MS);
+  }
+
+  function computeStockoutDays(stock, salesRate) {
+    if (stock === null) return null;
+    if (stock <= 0) return 0;
+    if (salesRate === null || salesRate <= 0) return null;
+    return Math.floor(stock / salesRate);
+  }
+
+  function showError(msg) {
+    const el = $('errorBanner');
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+  function clearError() {
+    $('errorBanner').classList.add('hidden');
+    $('errorBanner').textContent = '';
+  }
+
+  function handleWorkbook(workbook, fileName) {
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const json = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: true });
+    if (!json.length) {
+      showError('That spreadsheet looks empty — no rows were found on the first sheet.');
+      return;
+    }
+    const headers = Object.keys(json[0]);
+    const columns = detectColumns(headers);
+
+    if (!columns.name || !columns.stock) {
+      showError('Could not find a product name and/or current stock column. Detected headers: ' + headers.join(', ') + '. Try the template for the expected column names.');
+      return;
+    }
+
+    state.columns = columns;
+    state.fileName = fileName;
+    state.rows = json.map((row, idx) => {
+      const stock = toNumber(row[columns.stock]);
+      const minStockRaw = columns.minStock ? toNumber(row[columns.minStock]) : null;
+      const reorderPointRaw = columns.reorderPoint ? toNumber(row[columns.reorderPoint]) : null;
+      const minStock = minStockRaw !== null ? minStockRaw : reorderPointRaw;
+      const reorderPoint = reorderPointRaw !== null ? reorderPointRaw : minStockRaw;
+      const parLevel = columns.parLevel ? toNumber(row[columns.parLevel]) : null;
+      const reorderQty = columns.reorderQty ? toNumber(row[columns.reorderQty]) : null;
+      const salesRate = columns.salesRate ? toNumber(row[columns.salesRate]) : null;
+      return {
+        id: idx,
+        name: String(row[columns.name] ?? '').trim() || '(unnamed product)',
+        stock,
+        minStock,
+        reorderPoint,
+        expiration: columns.expiration ? parseDate(row[columns.expiration]) : null,
+        reorderQty,
+        parLevel,
+        salesRate,
+        stockoutDays: computeStockoutDays(stock, salesRate),
+        unit: columns.unit ? String(row[columns.unit] ?? '').trim() : '',
+        category: columns.category ? String(row[columns.category] ?? '').trim() : ''
+      };
+    }).filter(r => r.stock !== null || r.expiration !== null);
+
+    state.reviewed = new Set();
+
+    clearError();
+    $('fileName').textContent = fileName;
+    $('uploadCard').classList.add('hidden');
+    $('dashboard').classList.remove('hidden');
+    render();
+  }
+
+  function loadFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+        handleWorkbook(workbook, file.name);
+      } catch (err) {
+        showError('Could not read that file. Make sure it is a valid .xlsx, .xls, or .csv spreadsheet.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function badge(label, level) {
+    return '<span class="badge ' + level + '">' + label + '</span>';
+  }
+
+  function nameCell(r) {
+    return '<span class="name' + (state.reviewed.has(r.id) ? ' is-reviewed' : '') + '">' + escapeHtml(r.name) + '</span>';
+  }
+
+  function stockoutNameCell(r) {
+    let html = nameCell(r);
+    if (r.minStock !== null && r.stock !== null && r.stock > r.minStock) {
+      html += '<div class="stockout-hint">Above min stock &mdash; selling fast</div>';
+    }
+    return html;
+  }
+
+  function stockoutBadge(days) {
+    if (days === null) return '&mdash;';
+    const label = days + (days === 1 ? ' DAY LEFT' : ' DAYS LEFT');
+    if (days <= 3) return badge(label, 'critical');
+    if (days <= 7) return badge(label, 'serious');
+    if (days <= 14) return badge(label, 'warning');
+    return badge(label, 'good');
+  }
+
+  function reorderStatusBadge(r, stockoutThreshold) {
+    const isUrgent = r.stockoutDays === null || r.stockoutDays <= stockoutThreshold;
+    return isUrgent ? badge('REORDER NOW', 'serious') : badge('BELOW REORDER POINT', 'warning');
+  }
+
+  function rateCell(rate, unit) {
+    if (rate === null) return '&mdash;';
+    const formatted = Number.isInteger(rate) ? rate : rate.toFixed(2);
+    return formatted + ' ' + (unit ? escapeHtml(unit) : 'units') + '/day';
+  }
+
+  function statusCell(id, originalBadgeHtml) {
+    return state.reviewed.has(id) ? badge('REVIEWED', 'good') : originalBadgeHtml;
+  }
+
+  function reviewCell(id) {
+    if (state.reviewed.has(id)) {
+      return '<span class="review-done">&#10003; Reviewed <button type="button" class="undo-link" data-action="undo-review" data-id="' + id + '">undo</button></span>';
+    }
+    return '<button type="button" class="review-btn" data-action="mark-review" data-id="' + id + '">Mark reviewed</button>';
+  }
+
+  function renderMissingNote(field, label) {
+    return '<div class="missing-note">No <code>' + label + '</code> column was found, so this section can\'t be calculated. Add one to your spreadsheet and re-upload to see it.</div>';
+  }
+
+  function renderEmpty(msg) {
+    return '<div class="empty-section"><span class="check">&#10003;</span>' + msg + '</div>';
+  }
+
+  function render() {
+    const rows = state.rows;
+    const cols = state.columns;
+    const today = new Date();
+    const expiryThreshold = Number($('expiryDays').value) || 7;
+    const stockoutThreshold = Number($('stockoutDays').value) || 14;
+
+    $('totalCount').textContent = rows.length;
+
+    // Stockout forecast
+    const stockoutBody = $('stockoutBody');
+    if (!cols.salesRate) {
+      stockoutBody.innerHTML = renderMissingNote('salesRate', 'Sales Rate (or Avg Daily Sales)');
+      $('statStockout').textContent = '—';
+    } else {
+      const stockoutRows = rows
+        .filter(r => r.stockoutDays !== null && r.stockoutDays <= stockoutThreshold)
+        .sort((a, b) => a.stockoutDays - b.stockoutDays);
+      $('statStockout').textContent = stockoutRows.length;
+      if (!stockoutRows.length) {
+        stockoutBody.innerHTML = renderEmpty('No products are projected to run out soon.');
+      } else {
+        stockoutBody.innerHTML = renderTable(
+          ['Product', 'Category', 'Current Stock', 'Sales Rate', 'Days Until Stockout', 'Review'],
+          stockoutRows.map(r => ({ id: r.id, cells: [
+            stockoutNameCell(r),
+            escapeHtml(r.category) || '&mdash;',
+            numCell(r.stock, r.unit),
+            rateCell(r.salesRate, r.unit),
+            statusCell(r.id, stockoutBadge(r.stockoutDays)),
+            reviewCell(r.id)
+          ] })),
+          [false, false, true, true, false, false],
+          [false, true, true, true, false, false]
+        );
+      }
+    }
+
+    // Low stock
+    const lowStockBody = $('lowStockBody');
+    if (!cols.minStock && !cols.reorderPoint) {
+      lowStockBody.innerHTML = renderMissingNote('minStock', 'Min Stock (or Reorder Point)');
+      $('statLowStock').textContent = '—';
+    } else {
+      const lowStockRows = rows
+        .filter(r => r.stock !== null && r.minStock !== null && r.stock <= r.minStock)
+        .sort((a, b) => {
+          const aDays = a.stockoutDays === null ? Infinity : a.stockoutDays;
+          const bDays = b.stockoutDays === null ? Infinity : b.stockoutDays;
+          if (aDays !== bDays) return aDays - bDays;
+          return (a.stock - a.minStock) - (b.stock - b.minStock);
+        });
+      $('statLowStock').textContent = lowStockRows.length;
+      if (!lowStockRows.length) {
+        lowStockBody.innerHTML = renderEmpty('No products are low on stock.');
+      } else {
+        const headers = ['Product', 'Category', 'Current Stock', 'Min Stock'];
+        const numericCols = [false, false, true, true];
+        const mutedCols = [false, true, true, true];
+        if (cols.salesRate) { headers.push('Days Until Stockout'); numericCols.push(true); mutedCols.push(false); }
+        headers.push('Status', 'Review'); numericCols.push(false, false); mutedCols.push(false, false);
+
+        lowStockBody.innerHTML = renderTable(
+          headers,
+          lowStockRows.map(r => {
+            const cells = [
+              nameCell(r),
+              escapeHtml(r.category) || '&mdash;',
+              numCell(r.stock, r.unit),
+              numCell(r.minStock, r.unit)
+            ];
+            if (cols.salesRate) cells.push(stockoutBadge(r.stockoutDays));
+            cells.push(
+              statusCell(r.id, r.stock <= 0 ? badge('OUT OF STOCK', 'critical') : badge('LOW STOCK', 'serious')),
+              reviewCell(r.id)
+            );
+            return { id: r.id, cells };
+          }),
+          numericCols,
+          mutedCols
+        );
+      }
+    }
+
+    // Nearing expiration
+    const expiringBody = $('expiringBody');
+    $('expiringSubtitle').textContent = 'Products expired or expiring within ' + expiryThreshold + ' day' + (expiryThreshold === 1 ? '' : 's') + '.';
+    if (!cols.expiration) {
+      expiringBody.innerHTML = renderMissingNote('expiration', 'Expiration Date');
+      $('statExpiring').textContent = '—';
+    } else {
+      const expiringRows = rows
+        .filter(r => r.expiration !== null)
+        .map(r => ({ ...r, daysLeft: daysBetween(today, r.expiration) }))
+        .filter(r => r.daysLeft <= expiryThreshold)
+        .sort((a, b) => a.daysLeft - b.daysLeft);
+      $('statExpiring').textContent = expiringRows.length;
+      if (!expiringRows.length) {
+        expiringBody.innerHTML = renderEmpty('No products are expiring soon.');
+      } else {
+        const headers = ['Product', 'Category', 'Expiration Date', 'Days Left'];
+        const numericCols = [false, false, false, true];
+        const mutedCols = [false, true, true, true];
+        if (cols.salesRate) { headers.push('Days Until Stockout'); numericCols.push(true); mutedCols.push(false); }
+        headers.push('Status', 'Review'); numericCols.push(false, false); mutedCols.push(false, false);
+
+        expiringBody.innerHTML = renderTable(
+          headers,
+          expiringRows.map(r => {
+            const cells = [
+              nameCell(r),
+              escapeHtml(r.category) || '&mdash;',
+              r.expiration.toLocaleDateString(),
+              r.daysLeft < 0 ? (Math.abs(r.daysLeft) + (Math.abs(r.daysLeft) === 1 ? ' day ago' : ' days ago')) : (r.daysLeft === 0 ? 'Today' : r.daysLeft + (r.daysLeft === 1 ? ' day' : ' days'))
+            ];
+            if (cols.salesRate) cells.push(stockoutBadge(r.stockoutDays));
+            cells.push(
+              statusCell(r.id, r.daysLeft < 0 ? badge('EXPIRED', 'critical') : badge('EXPIRING SOON', 'warning')),
+              reviewCell(r.id)
+            );
+            return { id: r.id, cells };
+          }),
+          numericCols,
+          mutedCols
+        );
+      }
+    }
+
+    // Needs reordering
+    const reorderBody = $('reorderBody');
+    if (!cols.reorderPoint && !cols.minStock) {
+      reorderBody.innerHTML = renderMissingNote('reorderPoint', 'Reorder Point (or Min Stock)');
+      $('statReorder').textContent = '—';
+    } else {
+      const reorderRows = rows
+        .filter(r => r.stock !== null && r.reorderPoint !== null && r.stock <= r.reorderPoint)
+        .map(r => {
+          let suggested = null;
+          if (r.reorderQty !== null) suggested = r.reorderQty;
+          else if (r.parLevel !== null) suggested = Math.max(0, r.parLevel - r.stock);
+          return { ...r, suggested };
+        })
+        .sort((a, b) => {
+          const aDays = a.stockoutDays === null ? Infinity : a.stockoutDays;
+          const bDays = b.stockoutDays === null ? Infinity : b.stockoutDays;
+          if (aDays !== bDays) return aDays - bDays;
+          return (a.stock - a.reorderPoint) - (b.stock - b.reorderPoint);
+        });
+      $('statReorder').textContent = reorderRows.length;
+      if (!reorderRows.length) {
+        reorderBody.innerHTML = renderEmpty('No products need reordering right now.');
+      } else {
+        const headers = ['Product', 'Category', 'Current Stock', 'Reorder Point', 'Suggested Order'];
+        const numericCols = [false, false, true, true, true];
+        const mutedCols = [false, true, true, true, true];
+        if (cols.salesRate) { headers.push('Days Until Stockout'); numericCols.push(true); mutedCols.push(false); }
+        headers.push('Status', 'Review'); numericCols.push(false, false); mutedCols.push(false, false);
+
+        reorderBody.innerHTML = renderTable(
+          headers,
+          reorderRows.map(r => {
+            const cells = [
+              nameCell(r),
+              escapeHtml(r.category) || '&mdash;',
+              numCell(r.stock, r.unit),
+              numCell(r.reorderPoint, r.unit),
+              r.suggested !== null ? numCell(r.suggested, r.unit) : '&mdash;'
+            ];
+            if (cols.salesRate) cells.push(stockoutBadge(r.stockoutDays));
+            cells.push(
+              statusCell(r.id, reorderStatusBadge(r, stockoutThreshold)),
+              reviewCell(r.id)
+            );
+            return { id: r.id, cells };
+          }),
+          numericCols,
+          mutedCols
+        );
+      }
+    }
+
+    // Total needing action (union, de-duplicated by name)
+    const actionNames = new Set();
+    rows.forEach(r => {
+      const isLow = r.stock !== null && r.minStock !== null && r.stock <= r.minStock;
+      const isExpiring = r.expiration !== null && daysBetween(today, r.expiration) <= expiryThreshold;
+      const isReorder = r.stock !== null && r.reorderPoint !== null && r.stock <= r.reorderPoint;
+      const isStockoutRisk = r.stockoutDays !== null && r.stockoutDays <= stockoutThreshold;
+      if (isLow || isExpiring || isReorder || isStockoutRisk) actionNames.add(r.name + '|' + rows.indexOf(r));
+    });
+    $('statTotalAction').textContent = actionNames.size;
+  }
+
+  function numCell(n, unit) {
+    if (n === null || n === undefined) return '&mdash;';
+    const formatted = Number.isInteger(n) ? n : n.toFixed(2);
+    return formatted + (unit ? ' ' + escapeHtml(unit) : '');
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function renderTable(headers, rowsData, numericCols, mutedCols) {
+    let html = '<table><thead><tr>';
+    headers.forEach((h, i) => { html += '<th class="' + (numericCols[i] ? 'num' : '') + '">' + h + '</th>'; });
+    html += '</tr></thead><tbody>';
+    rowsData.forEach(({ id, cells }) => {
+      const muted = state.reviewed.has(id);
+      html += '<tr>';
+      cells.forEach((c, i) => {
+        const classes = [numericCols[i] ? 'num' : '', muted && mutedCols[i] ? 'is-reviewed-muted' : ''].filter(Boolean).join(' ');
+        html += '<td class="' + classes + '">' + c + '</td>';
+      });
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    return html;
+  }
+
+  function buildSampleWorkbook() {
+    const today = new Date();
+    const addDays = (n) => { const d = new Date(today); d.setDate(d.getDate() + n); return d; };
+    const data = [
+      ['Product Name', 'Category', 'Current Stock', 'Min Stock', 'Reorder Point', 'Reorder Qty', 'Expiration Date', 'Unit', 'Sales Rate'],
+      ['Whole Milk 1 Gal', 'Milk', 8, 20, 35, 60, addDays(3), 'gal', 3],
+      ['2% Milk 1 Gal', 'Milk', 42, 20, 35, 60, addDays(21), 'gal', 6],
+      ['Heavy Cream 1 Qt', 'Cream', 5, 10, 18, 24, addDays(9), 'qt', 0.5],
+      ['Salted Butter 1 lb', 'Butter', 30, 15, 25, 40, addDays(60), 'lb', 1],
+      ['Unsalted Butter 1 lb', 'Butter', 2, 15, 25, 40, addDays(45), 'lb', 0.3],
+      ['Plain Greek Yogurt 32oz', 'Yogurt', 12, 12, 20, 30, addDays(2), 'tub', 4],
+      ['Strawberry Yogurt 6oz', 'Yogurt', 55, 30, 50, 80, addDays(14), 'cup', 20],
+      ['Cheddar Cheese Block', 'Cheese', 18, 10, 16, 25, addDays(90), 'block', 0.4],
+      ['Mozzarella Shredded 16oz', 'Cheese', 0, 8, 15, 20, addDays(30), 'bag', 2],
+      ['Cottage Cheese 16oz', 'Cheese', 9, 10, 18, 22, addDays(-1), 'tub', 0.2],
+      ['Sour Cream 16oz', 'Cream', 14, 8, 14, 18, addDays(5), 'tub', 1],
+      ['Half & Half 1 Qt', 'Cream', 25, 12, 20, 30, addDays(40), 'qt', 2],
+      ['Buttermilk 1 Qt', 'Milk', 4, 10, 18, 24, addDays(6), 'qt', 0.5],
+      ['String Cheese 12ct', 'Cheese', 33, 15, 25, 35, addDays(75), 'pack', 3],
+      ['Cream Cheese 8oz', 'Cheese', 6, 10, 16, 22, addDays(-3), 'block', 0.1]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
+    return wb;
+  }
+
+  function downloadTemplate() {
+    const data = [
+      ['Product Name', 'Category', 'Current Stock', 'Min Stock', 'Reorder Point', 'Reorder Qty', 'Expiration Date', 'Unit', 'Sales Rate'],
+      ['Whole Milk 1 Gal', 'Milk', 24, 20, 35, 60, '2026-08-01', 'gal', 5],
+      ['Cheddar Cheese Block', 'Cheese', 12, 10, 16, 25, '2026-10-15', 'block', 0.5]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Inventory');
+    XLSX.writeFile(wb, 'dairy-inventory-template.xlsx');
+  }
+
+  // Wiring
+  $('browseBtn').addEventListener('click', () => fileInput.click());
+  dropzone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files[0]) loadFile(e.target.files[0]);
+  });
+  ['dragover', 'dragenter'].forEach(evt => dropzone.addEventListener(evt, (e) => {
+    e.preventDefault(); dropzone.classList.add('drag-over');
+  }));
+  ['dragleave', 'drop'].forEach(evt => dropzone.addEventListener(evt, (e) => {
+    e.preventDefault(); dropzone.classList.remove('drag-over');
+  }));
+  dropzone.addEventListener('drop', (e) => {
+    const file = e.dataTransfer.files[0];
+    if (file) loadFile(file);
+  });
+  $('sampleBtn').addEventListener('click', () => {
+    handleWorkbook(buildSampleWorkbook(), 'sample-dairy-inventory.xlsx');
+  });
+  $('templateBtn').addEventListener('click', downloadTemplate);
+  $('newFileBtn').addEventListener('click', () => {
+    state.rows = []; state.columns = {}; state.reviewed = new Set(); fileInput.value = '';
+    clearError();
+    $('dashboard').classList.add('hidden');
+    $('uploadCard').classList.remove('hidden');
+  });
+  $('expiryDays').addEventListener('input', render);
+  $('stockoutDays').addEventListener('input', render);
+  $('dashboard').addEventListener('click', (e) => {
+    const target = e.target.closest('[data-action]');
+    if (!target) return;
+    const id = Number(target.dataset.id);
+    if (target.dataset.action === 'mark-review') state.reviewed.add(id);
+    else if (target.dataset.action === 'undo-review') state.reviewed.delete(id);
+    render();
+  });
+})();
+</script>
+</body>
+</html>
