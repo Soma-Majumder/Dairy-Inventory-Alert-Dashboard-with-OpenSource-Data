@@ -118,10 +118,11 @@
   tbody tr:hover td { background: #faf5ed; }
   tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--gridline) 16%, transparent); }
   tbody tr:last-child td { border-bottom: none; }
-  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.num, th.num { text-align: center; font-variant-numeric: tabular-nums; }
   th:first-child, td:first-child { width: 23%; }
   th:nth-child(2), td:nth-child(2) { width: 12%; }
-  th:last-child, td:last-child { width: 14%; text-align: right; }
+  th:not(:first-child), td:not(:first-child) { text-align: center; }
+  th:last-child, td:last-child { width: 14%; }
   td.name { font-weight: 600; }
   .name.is-reviewed { color: var(--text-muted); font-weight: 600; text-decoration: line-through; }
   td.is-reviewed-muted { color: var(--text-muted); }
