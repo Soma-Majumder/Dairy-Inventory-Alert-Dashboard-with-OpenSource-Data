@@ -132,12 +132,13 @@
   section.category h2 { font-family: Georgia, "Times New Roman", serif; font-size: 22px; font-weight: 500; letter-spacing: -.02em; margin: 0 0 4px; display:flex; align-items:center; gap:8px; }
   section.category h2.days-until-run-out { font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
   section.category .subtitle { font-size: 13px; color: var(--text-secondary); margin: 0 0 12px; line-height: 1.45; }
-  section.category > .card { padding: 6px 10px; overflow-x: auto; }
+  section.category > .card { padding: 6px 10px; max-height: min(480px, 65vh); overflow: auto; overscroll-behavior: contain; }
 
   table { width: 100%; min-width: 1100px; border-collapse: collapse; font-size: 13px; }
   thead th {
     text-align: left; font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: var(--text-secondary);
     border-bottom: 1px solid var(--gridline); padding: 12px 10px 10px; white-space: nowrap; vertical-align: bottom;
+    position: sticky; top: 0; z-index: 2; background: var(--surface-1);
   }
   tbody td { padding: 12px 10px; border-bottom: 1px solid var(--gridline); vertical-align: middle; }
   tbody tr { transition: background .15s; }
@@ -146,6 +147,11 @@
   tbody tr:last-child td { border-bottom: none; }
   td.num, th.num { text-align: center; font-variant-numeric: tabular-nums; }
   th:not(:first-child), td:not(:first-child) { text-align: center; }
+  /* Keep the product label visible while horizontally scrolling on small screens. */
+  thead th:first-child { left: 0; z-index: 3; }
+  tbody td:first-child { position: sticky; left: 0; z-index: 1; background: var(--surface-1); box-shadow: 2px 0 4px rgba(54, 48, 38, .08); }
+  tbody tr:nth-child(even) td:first-child { background: color-mix(in srgb, var(--gridline) 16%, var(--surface-1)); }
+  tbody tr:hover td:first-child { background: #faf5ed; }
   td.name { font-weight: 600; }
   .name.is-reviewed { color: var(--text-muted); font-weight: 600; text-decoration: line-through; }
   td.is-reviewed-muted { color: var(--text-muted); }
