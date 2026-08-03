@@ -130,6 +130,7 @@
 
   section.category { margin-top: 34px; }
   section.category h2 { font-family: Georgia, "Times New Roman", serif; font-size: 22px; font-weight: 500; letter-spacing: -.02em; margin: 0 0 4px; display:flex; align-items:center; gap:8px; }
+  section.category h2.days-until-run-out { font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
   section.category .subtitle { font-size: 13px; color: var(--text-secondary); margin: 0 0 12px; line-height: 1.45; }
   section.category > .card { padding: 6px 10px; overflow-x: auto; }
 
@@ -279,25 +280,25 @@
     </div>
 
     <section class="category" id="sectionStockout">
-      <h2><span class="dot critical"></span>Stockout forecast</h2>
+      <h2 class="days-until-run-out"><span class="dot critical"></span>Days Til Items Run Out</h2>
       <p class="subtitle" id="stockoutSubtitle">Products projected to run out soonest, based on current stock &divide; average daily sales rate.</p>
       <div class="card" id="stockoutBody"></div>
     </section>
 
     <section class="category" id="sectionLowStock">
-      <h2><span class="dot critical"></span>Low stock</h2>
+      <h2 class="days-until-run-out"><span class="dot critical"></span>Low stock</h2>
       <p class="subtitle">Current stock at or below the minimum stock level.</p>
       <div class="card" id="lowStockBody"></div>
     </section>
 
     <section class="category" id="sectionExpiring">
-      <h2><span class="dot warning"></span>Nearing expiration</h2>
+      <h2 class="days-until-run-out"><span class="dot warning"></span>Nearing expiration</h2>
       <p class="subtitle" id="expiringSubtitle">Products expiring soon or already expired.</p>
       <div class="card" id="expiringBody"></div>
     </section>
 
     <section class="category" id="sectionReorder">
-      <h2><span class="dot serious"></span>Needs reordering</h2>
+      <h2 class="days-until-run-out"><span class="dot serious"></span>Needs reordering</h2>
       <p class="subtitle">Current stock at or below the reorder point.</p>
       <div class="card" id="reorderBody"></div>
     </section>
